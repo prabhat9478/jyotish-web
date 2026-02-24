@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "predev": "node -e \"try{require('fs').unlinkSync('.next/dev/lock')}catch(e){}\"",
+    "predev": "node -e \"['.\\.next/dev/lock','./src/middleware.ts'].forEach(f=>{try{require('fs').unlinkSync(f)}catch(e){}})\"",
     "dev": "next dev -p 3001",
     "build": "next build",
     "start": "next start",
