@@ -5,11 +5,13 @@
 const ASTRO_ENGINE_URL = process.env.ASTRO_ENGINE_URL || "http://localhost:8000";
 
 export interface BirthData {
-  date: string; // YYYY-MM-DD
-  time: string; // HH:MM:SS
+  name?: string;
+  birth_date: string; // YYYY-MM-DD
+  birth_time: string; // HH:MM:SS
   latitude: number;
   longitude: number;
   timezone: string;
+  ayanamsha?: string; // lahiri (default), raman, krishnamurti
 }
 
 export interface Planet {
