@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useEffect, useRef } from 'react';
 
@@ -22,10 +22,13 @@ export const StarField: React.FC<StarFieldProps> = ({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    // Capture non-null canvas reference for use inside class
+    const canvasEl = canvas;
+
     // Set canvas size
     const setCanvasSize = () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
+      canvasEl.width = window.innerWidth;
+      canvasEl.height = window.innerHeight;
     };
     setCanvasSize();
     window.addEventListener('resize', setCanvasSize);
@@ -41,9 +44,9 @@ export const StarField: React.FC<StarFieldProps> = ({
       twinklePhase: number;
 
       constructor() {
-        this.x = Math.random() * canvas.width;
-        this.y = Math.random() * canvas.height;
-        this.z = Math.random() * canvas.width;
+        this.x = Math.random() * canvasEl.width;
+        this.y = Math.random() * canvasEl.height;
+        this.z = Math.random() * canvasEl.width;
         this.radius = Math.random() * 1.5 + 0.5;
         this.color = this.getStarColor();
         this.twinkleSpeed = Math.random() * 0.02 + 0.01;
@@ -63,20 +66,20 @@ export const StarField: React.FC<StarFieldProps> = ({
       update() {
         this.z -= speed;
         if (this.z <= 0) {
-          this.z = canvas.width;
-          this.x = Math.random() * canvas.width;
-          this.y = Math.random() * canvas.height;
+          this.z = canvasEl.width;
+          this.x = Math.random() * canvasEl.width;
+          this.y = Math.random() * canvasEl.height;
         }
         this.twinklePhase += this.twinkleSpeed;
       }
 
       draw(ctx: CanvasRenderingContext2D) {
-        const x = (this.x - canvas.width / 2) * (canvas.width / this.z);
-        const y = (this.y - canvas.height / 2) * (canvas.width / this.z);
-        const radius = this.radius * (canvas.width / this.z);
+        const x = (this.x - canvasEl.width / 2) * (canvasEl.width / this.z);
+        const y = (this.y - canvasEl.height / 2) * (canvasEl.width / this.z);
+        const radius = this.radius * (canvasEl.width / this.z);
 
-        const centerX = canvas.width / 2 + x;
-        const centerY = canvas.height / 2 + y;
+        const centerX = canvasEl.width / 2 + x;
+        const centerY = canvasEl.height / 2 + y;
 
         // Twinkle effect
         const twinkle = (Math.sin(this.twinklePhase) + 1) / 2;
@@ -117,7 +120,7 @@ export const StarField: React.FC<StarFieldProps> = ({
     let animationFrameId: number;
     const animate = () => {
       ctx.fillStyle = 'rgba(10, 10, 26, 0.1)'; // Slow fade for trail effect
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillRect(0, 0, canvasEl.width, canvasEl.height);
 
       stars.forEach((star) => {
         star.update();
@@ -211,3 +214,4 @@ export const StarFieldCSS: React.FC<{ className?: string }> = ({ className = '' 
     </div>
   );
 };
+

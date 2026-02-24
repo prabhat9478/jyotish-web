@@ -60,9 +60,12 @@ export async function POST(request: NextRequest) {
   // Generate streaming response
   const stream = await generateChatResponse({
     profileId,
-    chartData: profile.chart_data,
+    chartData: profile.chart_data as any,
     query: message,
-    conversationHistory,
+    conversationHistory: conversationHistory.map((m) => ({
+      role: m.role as "user" | "assistant",
+      content: m.content,
+    })),
     model,
   });
 

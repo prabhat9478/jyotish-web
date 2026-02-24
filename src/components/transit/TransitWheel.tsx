@@ -152,7 +152,7 @@ function drawZodiacCircle(
 
 function drawPlanets(
   g: d3.Selection<SVGGElement, unknown, null, undefined>,
-  planets: any[],
+  planets: { name: import("@/types/astro").PlanetName; longitude: number; [key: string]: any }[],
   radius: number,
   type: 'natal' | 'transit'
 ) {

@@ -129,7 +129,7 @@ const Sun: React.FC = () => {
 };
 
 interface PlanetProps {
-  planet: any;
+  planet: import("@/types/astro").Planet;
   showBirthPositions: boolean;
   isSelected: boolean;
   onClick: () => void;

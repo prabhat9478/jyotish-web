@@ -104,10 +104,7 @@ export interface ChartData {
   dashas: DashaSequence;
   yogas: Yoga[];
   aspects: Aspect[];
-  ashtakavarga?: {
-    [key in PlanetName]?: number[];
-    sarva?: number[];
-  };
+  ashtakavarga?: Partial<Record<PlanetName, number[]>> & { sarva?: number[] };
   calculatedAt: Date;
 }
 

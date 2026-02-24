@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
     reportType,
     language: language || "en",
     model,
-    chartData: profile.chart_data,
+    chartData: profile.chart_data as any,
   });
 
   let fullContent = "";

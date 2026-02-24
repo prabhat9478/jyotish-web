@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
     const { error } = await supabase
       .from("profiles")
       .update({
-        chart_data: chartData,
+        chart_data: chartData as unknown as import("@/lib/supabase/types").Json,
         chart_calculated_at: new Date().toISOString(),
       })
       .eq("id", profileId);
