@@ -6,8 +6,12 @@ import { ArrowLeft, Loader2, MapPin } from "lucide-react";
 import Link from "next/link";
 
 const RELATIONS = [
-  "Self", "Spouse", "Father", "Mother", "Son", "Daughter",
-  "Brother", "Sister", "Grandfather", "Grandmother", "Other",
+  { label: "Self", value: "self" },
+  { label: "Spouse", value: "spouse" },
+  { label: "Parent", value: "parent" },
+  { label: "Child", value: "child" },
+  { label: "Sibling", value: "sibling" },
+  { label: "Other", value: "other" },
 ];
 
 interface GeoResult {
@@ -52,14 +56,13 @@ export default function NewProfilePage() {
 
   const [form, setForm] = useState({
     name: "",
-    relation: "Self",
+    relation: "self",
     birth_date: "",
     birth_time: "",
     birth_place: "",
     latitude: "",
     longitude: "",
     timezone: "Asia/Kolkata",
-    notes: "",
   });
 
   const set = (k: string, v: string) => setForm((f) => ({ ...f, [k]: v }));
@@ -105,7 +108,6 @@ export default function NewProfilePage() {
           latitude: parseFloat(form.latitude),
           longitude: parseFloat(form.longitude),
           timezone: form.timezone,
-          notes: form.notes || null,
         }),
       });
 
@@ -176,7 +178,7 @@ export default function NewProfilePage() {
               className="w-full px-3 py-2 rounded-md bg-muted/30 border border-border focus:outline-none focus:ring-2 focus:ring-primary/50"
             >
               {RELATIONS.map((r) => (
-                <option key={r} value={r}>{r}</option>
+                <option key={r.value} value={r.value}>{r.label}</option>
               ))}
             </select>
           </div>
@@ -272,18 +274,6 @@ export default function NewProfilePage() {
               className="w-full px-3 py-2 rounded-md bg-muted/30 border border-border text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
             />
           </div>
-        </div>
-
-        {/* Notes */}
-        <div>
-          <label className="block text-sm font-medium mb-1.5">Notes <span className="text-muted-foreground font-normal">(optional)</span></label>
-          <textarea
-            value={form.notes}
-            onChange={(e) => set("notes", e.target.value)}
-            rows={2}
-            placeholder="Any additional notes..."
-            className="w-full px-3 py-2 rounded-md bg-muted/30 border border-border focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
-          />
         </div>
 
         {error && (
