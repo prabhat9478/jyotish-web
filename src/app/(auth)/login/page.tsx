@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -57,6 +57,7 @@ export default function LoginPage() {
             onChange={(e) => setEmail(e.target.value)}
             className="w-full px-4 py-2 rounded-md bg-background border border-border focus:outline-none focus:ring-2 focus:ring-primary"
             required
+            suppressHydrationWarning
           />
         </div>
 
@@ -71,6 +72,7 @@ export default function LoginPage() {
             onChange={(e) => setPassword(e.target.value)}
             className="w-full px-4 py-2 rounded-md bg-background border border-border focus:outline-none focus:ring-2 focus:ring-primary"
             required
+            suppressHydrationWarning
           />
         </div>
 
@@ -92,3 +94,4 @@ export default function LoginPage() {
     </div>
   );
 }
+

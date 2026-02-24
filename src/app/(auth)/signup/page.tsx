@@ -64,6 +64,7 @@ export default function SignupPage() {
             onChange={(e) => setEmail(e.target.value)}
             className="w-full px-4 py-2 rounded-md bg-background border border-border focus:outline-none focus:ring-2 focus:ring-primary"
             required
+            suppressHydrationWarning
           />
         </div>
 
@@ -79,6 +80,7 @@ export default function SignupPage() {
             className="w-full px-4 py-2 rounded-md bg-background border border-border focus:outline-none focus:ring-2 focus:ring-primary"
             required
             minLength={6}
+            suppressHydrationWarning
           />
         </div>
 
@@ -94,6 +96,7 @@ export default function SignupPage() {
             className="w-full px-4 py-2 rounded-md bg-background border border-border focus:outline-none focus:ring-2 focus:ring-primary"
             required
             minLength={6}
+            suppressHydrationWarning
           />
         </div>
 

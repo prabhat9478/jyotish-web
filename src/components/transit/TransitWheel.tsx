@@ -90,6 +90,7 @@ export const TransitWheel: React.FC<TransitWheelProps> = ({
               value={selectedDate.toISOString().split('T')[0]}
               onChange={handleDateChange}
               className="bg-[#0f1729] border border-[#1e2d4a] text-[#e2e8f0] px-3 py-2 rounded-lg text-sm focus:outline-none focus:border-[#7c3aed]"
+              suppressHydrationWarning
             />
           </div>
         </div>
