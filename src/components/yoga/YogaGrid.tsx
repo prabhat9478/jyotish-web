@@ -41,7 +41,7 @@ export const YogaGrid: React.FC<YogaGridProps> = ({ yogas, className = '' }) => 
     // Sort
     const sorted = [...filtered].sort((a, b) => {
       if (sortBy === 'strength') {
-        return strengthOrder[b.strength] - strengthOrder[a.strength];
+        return (strengthOrder[b.strength as keyof typeof strengthOrder] ?? 0) - (strengthOrder[a.strength as keyof typeof strengthOrder] ?? 0);
       } else {
         return a.name.localeCompare(b.name);
       }

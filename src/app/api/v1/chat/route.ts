@@ -2,35 +2,94 @@ import { NextRequest } from "next/server";
 import { createServerClient } from "@/lib/supabase/server";
 import { generateChatResponse, buildSourcesMetadata } from "@/lib/rag/chat";
 import { searchReportChunks } from "@/lib/rag/retriever";
+import { z } from "zod";
+
+const ChatSchema = z.object({
+  profileId: z.string().uuid(),
+  sessionId: z.string().uuid().optional(),
+  message: z.string().min(1).max(2000),
+  model: z.string().optional(),
+});
 
 export async function POST(request: NextRequest) {
   const supabase = await createServerClient();
-  const body = await request.json();
 
-  const { profileId, sessionId, message, model } = body;
-
-  if (!profileId || !message) {
-    return new Response(JSON.stringify({ error: "Missing required fields" }), {
-      status: 400,
+  // Explicit auth check
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
     });
   }
 
-  // Fetch profile with chart data
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return new Response(JSON.stringify({ error: "Invalid JSON body" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  // Zod validation
+  const parseResult = ChatSchema.safeParse(body);
+  if (!parseResult.success) {
+    return new Response(
+      JSON.stringify({ error: "Validation failed", issues: parseResult.error.issues }),
+      { status: 400, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
+  const { profileId, sessionId, message, model } = parseResult.data;
+
+  // Verify profile belongs to authenticated user
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("*")
     .eq("id", profileId)
+    .eq("user_id", user.id)
     .single();
 
-  if (profileError || !profile?.chart_data) {
-    return new Response(JSON.stringify({ error: "Profile or chart data not found" }), {
+  if (profileError || !profile) {
+    return new Response(JSON.stringify({ error: "Profile not found" }), {
       status: 404,
+      headers: { "Content-Type": "application/json" },
     });
   }
 
-  // Get or create session
+  if (!profile.chart_data) {
+    return new Response(JSON.stringify({ error: "Chart data not found. Calculate chart first." }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  // Get or create session, with ownership verification
   let currentSessionId = sessionId;
-  if (!currentSessionId) {
+  if (currentSessionId) {
+    // Verify session belongs to this profile (which belongs to the authenticated user)
+    const { data: existingSession, error: sessionError } = await supabase
+      .from("chat_sessions")
+      .select("id, profile_id")
+      .eq("id", currentSessionId)
+      .single();
+
+    if (sessionError || !existingSession) {
+      return new Response(JSON.stringify({ error: "Chat session not found" }), {
+        status: 404,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    if (existingSession.profile_id !== profileId) {
+      return new Response(JSON.stringify({ error: "Session does not belong to this profile" }), {
+        status: 403,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+  } else {
     const { data: newSession } = await supabase
       .from("chat_sessions")
       .insert({
@@ -41,6 +100,13 @@ export async function POST(request: NextRequest) {
       .single();
 
     currentSessionId = newSession?.id;
+  }
+
+  if (!currentSessionId) {
+    return new Response(JSON.stringify({ error: "Failed to create chat session" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
   }
 
   // Fetch conversation history
@@ -58,16 +124,25 @@ export async function POST(request: NextRequest) {
   const sources = buildSourcesMetadata(searchResults);
 
   // Generate streaming response
-  const stream = await generateChatResponse({
-    profileId,
-    chartData: profile.chart_data as any,
-    query: message,
-    conversationHistory: conversationHistory.map((m) => ({
-      role: m.role as "user" | "assistant",
-      content: m.content,
-    })),
-    model,
-  });
+  let stream: ReadableStream<Uint8Array>;
+  try {
+    stream = await generateChatResponse({
+      profileId,
+      chartData: profile.chart_data as any,
+      query: message,
+      conversationHistory: conversationHistory.map((m) => ({
+        role: m.role as "user" | "assistant",
+        content: m.content,
+      })),
+      model,
+    });
+  } catch (error: unknown) {
+    const errMessage = error instanceof Error ? error.message : "Failed to generate chat response";
+    return new Response(JSON.stringify({ error: errMessage }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
 
   let fullResponse = "";
 
@@ -99,7 +174,7 @@ export async function POST(request: NextRequest) {
                   controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content })}\n\n`));
                 }
               } catch (e) {
-                // Ignore parse errors
+                // Ignore parse errors for individual chunks
               }
             }
           }
@@ -127,7 +202,17 @@ export async function POST(request: NextRequest) {
         controller.enqueue(encoder.encode("data: [DONE]\n\n"));
         controller.close();
       } catch (error) {
-        controller.error(error);
+        // Send error event to client via SSE
+        try {
+          controller.enqueue(
+            encoder.encode(
+              `data: ${JSON.stringify({ type: "error", message: "Chat response generation failed" })}\n\n`
+            )
+          );
+        } catch {
+          // Controller may already be errored
+        }
+        controller.close();
       }
     },
   });

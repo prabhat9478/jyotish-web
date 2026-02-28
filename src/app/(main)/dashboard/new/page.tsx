@@ -122,8 +122,9 @@ export default function NewProfilePage() {
           profileId: data.id,
           birthData: {
             name: form.name,
-            birth_date: form.birth_date,
-            birth_time: form.birth_time,
+            dateOfBirth: form.birth_date,
+            timeOfBirth: form.birth_time,
+            placeOfBirth: form.birth_place,
             latitude: parseFloat(form.latitude),
             longitude: parseFloat(form.longitude),
             timezone: form.timezone,

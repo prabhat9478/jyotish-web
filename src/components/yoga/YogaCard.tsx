@@ -17,8 +17,8 @@ export const YogaCard: React.FC<YogaCardProps> = ({ yoga, onClick }) => {
     onClick?.();
   };
 
-  const glowColor = STRENGTH_COLORS[yoga.strength];
-  const typeColor = YOGA_TYPE_COLORS[yoga.type];
+  const glowColor = STRENGTH_COLORS[yoga.strength as import('@/types/astro').YogaStrength] ?? '#64748b';
+  const typeColor = YOGA_TYPE_COLORS[yoga.type as import('@/types/astro').YogaType] ?? '#64748b';
 
   return (
     <motion.div
@@ -123,13 +123,6 @@ export const YogaCard: React.FC<YogaCardProps> = ({ yoga, onClick }) => {
             </div>
 
             {/* Classical Source */}
-            {yoga.classicalSource && (
-              <div className="mt-4 pt-4 border-t border-[#1e2d4a]">
-                <p className="text-[#64748b] text-xs italic">
-                  Source: {yoga.classicalSource}
-                </p>
-              </div>
-            )}
           </div>
         </div>
       </motion.div>

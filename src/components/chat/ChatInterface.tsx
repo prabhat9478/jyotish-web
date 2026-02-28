@@ -7,6 +7,8 @@ import { ChatMessage, Profile } from '@/types/astro';
 
 interface ChatInterfaceProps {
   profile: Profile;
+  profileId?: string;
+  sessionId?: string;
   initialMessages?: ChatMessage[];
   onSendMessage?: (message: string) => Promise<void>;
   className?: string;
@@ -14,6 +16,8 @@ interface ChatInterfaceProps {
 
 export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   profile,
+  profileId,
+  sessionId,
   initialMessages = [],
   onSendMessage,
   className = '',
@@ -51,62 +55,113 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     };
 
     setMessages((prev) => [...prev, userMessage]);
+    const messageText = input.trim();
     setInput('');
     setIsStreaming(true);
 
-    // Mock streaming response - replace with actual SSE implementation
-    const assistantMessage: ChatMessage = {
-      id: (Date.now() + 1).toString(),
-      role: 'assistant',
-      content: '',
-      sources: [],
-      createdAt: new Date(),
-    };
+    // Create assistant message placeholder
+    const assistantMsgId = (Date.now() + 1).toString();
+    setMessages((prev) => [
+      ...prev,
+      {
+        id: assistantMsgId,
+        role: 'assistant',
+        content: '',
+        sources: [],
+        createdAt: new Date(),
+      },
+    ]);
 
-    setMessages((prev) => [...prev, assistantMessage]);
+    // If we have profileId and sessionId, use real SSE
+    if (profileId && sessionId) {
+      try {
+        const response = await fetch('/api/v1/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            profileId: profileId,
+            sessionId: sessionId,
+            message: messageText,
+          }),
+        });
 
-    // Simulate streaming
-    const mockResponse = `Based on your chart, I can see that you're currently in the Jupiter-Saturn dasha period. This is generally a favorable time for career growth and financial stability. However, Mars is transiting your 10th house, which suggests you should be cautious about workplace conflicts.`;
-
-    for (let i = 0; i < mockResponse.length; i++) {
-      await new Promise((resolve) => setTimeout(resolve, 20));
-      setMessages((prev) => {
-        const updated = [...prev];
-        const lastMessage = updated[updated.length - 1];
-        if (lastMessage.role === 'assistant') {
-          lastMessage.content = mockResponse.substring(0, i + 1);
+        if (!response.ok) {
+          throw new Error('Chat request failed');
         }
-        return updated;
-      });
-    }
 
-    // Add mock sources
-    setMessages((prev) => {
-      const updated = [...prev];
-      const lastMessage = updated[updated.length - 1];
-      if (lastMessage.role === 'assistant') {
-        lastMessage.sources = [
-          {
-            reportId: '1',
-            reportType: 'career',
-            chunkId: '1',
-            page: 4,
-          },
-          {
-            reportId: '2',
-            reportType: 'transit_saturn',
-            chunkId: '2',
-            page: 8,
-          },
-        ];
+        const reader = response.body?.getReader();
+        const decoder = new TextDecoder();
+
+        while (reader) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value);
+          const lines = chunk.split('\n').filter((l) => l.startsWith('data: '));
+
+          for (const line of lines) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              if (data.content) {
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === assistantMsgId
+                      ? { ...m, content: m.content + data.content }
+                      : m
+                  )
+                );
+              }
+              if (data.sources) {
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === assistantMsgId
+                      ? { ...m, sources: data.sources }
+                      : m
+                  )
+                );
+              }
+              if (data.done) {
+                break;
+              }
+            } catch {
+              // SSE parse error, skip
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Chat SSE error:', err);
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantMsgId
+              ? {
+                  ...m,
+                  content:
+                    'Sorry, I encountered an error connecting to the AI service. Please try again.',
+                }
+              : m
+          )
+        );
       }
-      return updated;
-    });
+    } else {
+      // Fallback: mock streaming response for development/preview
+      const mockResponse = `Based on your chart, I can see that you're currently in an active dasha period. This is generally a favorable time for growth and development. Let me analyze the specific planetary positions to give you more detailed insights.`;
+
+      for (let i = 0; i < mockResponse.length; i++) {
+        await new Promise((resolve) => setTimeout(resolve, 15));
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantMsgId
+              ? { ...m, content: mockResponse.substring(0, i + 1) }
+              : m
+          )
+        );
+      }
+    }
 
     setIsStreaming(false);
 
     if (onSendMessage) {
-      await onSendMessage(input.trim());
+      await onSendMessage(messageText);
     }
   };
 
@@ -143,7 +198,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
               Chatting about: {profile.name}
             </h3>
             <p className="text-[#64748b] text-xs">
-              AI-powered chart analysis
+              AI-powered chart analysis {sessionId ? '' : '(preview mode)'}
             </p>
           </div>
         </div>
@@ -169,9 +224,9 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
             className="flex items-center gap-2 text-[#64748b]"
           >
             <div className="flex gap-1">
-              <span className="animate-bounce" style={{ animationDelay: '0ms' }}>●</span>
-              <span className="animate-bounce" style={{ animationDelay: '150ms' }}>●</span>
-              <span className="animate-bounce" style={{ animationDelay: '300ms' }}>●</span>
+              <span className="animate-bounce" style={{ animationDelay: '0ms' }}>.</span>
+              <span className="animate-bounce" style={{ animationDelay: '150ms' }}>.</span>
+              <span className="animate-bounce" style={{ animationDelay: '300ms' }}>.</span>
             </div>
             <span className="text-sm">Analyzing chart...</span>
           </motion.div>
@@ -205,7 +260,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
             ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyPress={handleKeyPress}
+            onKeyDown={handleKeyPress}
             placeholder="Ask about your chart..."
             disabled={isStreaming}
             className="flex-1 bg-[#0f1729] border border-[#1e2d4a] text-[#e2e8f0] px-4 py-3 rounded-lg resize-none focus:outline-none focus:border-[#7c3aed] disabled:opacity-50"
@@ -256,7 +311,7 @@ const MessageBubble: React.FC<{
                   key={index}
                   className="px-2 py-1 bg-[#0a0a1a] rounded text-xs text-[#c9a227] border border-[#1e2d4a]"
                 >
-                  [{source.reportType.replace('_', ' ')}, p.{source.page}]
+                  [{source.reportType.replace('_', ' ')}{source.page ? `, p.${source.page}` : ''}]
                 </span>
               ))}
             </div>
@@ -264,7 +319,7 @@ const MessageBubble: React.FC<{
         </div>
 
         {/* Copy button for assistant messages */}
-        {!isUser && (
+        {!isUser && message.content && (
           <button
             onClick={() => onCopy(message.id, message.content)}
             className="mt-2 text-[#64748b] hover:text-[#e2e8f0] text-xs flex items-center gap-1 transition-colors"

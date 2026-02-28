@@ -7,34 +7,18 @@ import { Planet, PlanetName, PLANET_COLORS } from '@/types/astro';
 
 interface PlanetInfoPanelProps {
   planet: Planet | null;
+  planetName: PlanetName | null;
   onClose: () => void;
   aspects?: Array<{ planet: PlanetName; type: string; orb: number }>;
 }
 
 export const PlanetInfoPanel: React.FC<PlanetInfoPanelProps> = ({
   planet,
+  planetName,
   onClose,
   aspects = [],
 }) => {
-  if (!planet) return null;
-
-  const dignityColors = {
-    exalted: '#c9a227', // gold
-    debilitated: '#ff3b30', // red
-    own: '#34c759', // green
-    friend: '#0a84ff', // blue
-    neutral: '#64748b', // gray
-    enemy: '#ff9500', // orange
-  };
-
-  const dignityLabels = {
-    exalted: 'Exalted',
-    debilitated: 'Debilitated',
-    own: 'Own Sign',
-    friend: 'Friend\'s Sign',
-    neutral: 'Neutral',
-    enemy: 'Enemy\'s Sign',
-  };
+  if (!planet || !planetName) return null;
 
   return (
     <AnimatePresence>
@@ -51,10 +35,10 @@ export const PlanetInfoPanel: React.FC<PlanetInfoPanelProps> = ({
             <div>
               <h2
                 className="text-2xl font-bold mb-1"
-                style={{ color: PLANET_COLORS[planet.name] }}
+                style={{ color: PLANET_COLORS[planetName] }}
               >
-                {planet.name}
-                {planet.isRetrograde && (
+                {planetName}
+                {planet.retrograde && (
                   <span className="ml-2 text-[#ff3b30] text-xl">℞</span>
                 )}
               </h2>
@@ -72,35 +56,31 @@ export const PlanetInfoPanel: React.FC<PlanetInfoPanelProps> = ({
           <div className="space-y-4">
             <InfoRow label="Sign" value={planet.sign} />
             <InfoRow
-              label="Longitude"
-              value={`${Math.floor(planet.longitude)}° ${Math.floor((planet.longitude % 1) * 60)}'`}
+              label="Degrees"
+              value={`${Math.floor(planet.degrees)}° ${Math.floor((planet.degrees % 1) * 60)}'`}
             />
             <InfoRow label="House" value={`${planet.house}th House`} />
 
-            {/* Dignity */}
-            <div className="flex items-center justify-between py-3 border-b border-[#1e2d4a]">
-              <span className="text-[#64748b] text-sm">Dignity</span>
-              <span
-                className="font-semibold px-3 py-1 rounded-full text-sm"
-                style={{
-                  backgroundColor: `${dignityColors[planet.dignity]}20`,
-                  color: dignityColors[planet.dignity],
-                }}
-              >
-                {dignityLabels[planet.dignity]}
-              </span>
-            </div>
+            {/* Combust Status */}
+            {planet.combust && (
+              <div className="flex items-center justify-between py-3 border-b border-[#1e2d4a]">
+                <span className="text-[#64748b] text-sm">Status</span>
+                <span className="font-semibold px-3 py-1 rounded-full text-sm bg-[#ff950020] text-[#ff9500]">
+                  Combust
+                </span>
+              </div>
+            )}
 
             {/* Nakshatra */}
             <div className="bg-[#0a0a1a] rounded-lg p-4 border border-[#1e2d4a]">
               <h3 className="text-[#c9a227] font-semibold mb-3">Nakshatra</h3>
-              <InfoRow label="Name" value={planet.nakshatra.name} compact />
-              <InfoRow label="Pada" value={planet.nakshatra.pada.toString()} compact />
-              <InfoRow label="Lord" value={planet.nakshatra.lord} compact />
+              <InfoRow label="Name" value={planet.nakshatra} compact />
+              <InfoRow label="Pada" value={planet.pada.toString()} compact />
+              <InfoRow label="Sign Lord" value={planet.lord} compact />
             </div>
 
             {/* Retrograde Status */}
-            {planet.isRetrograde && (
+            {planet.retrograde && (
               <div className="bg-[#ff3b3010] border border-[#ff3b30] rounded-lg p-4">
                 <h3 className="text-[#ff3b30] font-semibold mb-2">Retrograde</h3>
                 <p className="text-[#e2e8f0] text-sm">
@@ -109,13 +89,6 @@ export const PlanetInfoPanel: React.FC<PlanetInfoPanelProps> = ({
                 </p>
               </div>
             )}
-
-            {/* Speed */}
-            <InfoRow
-              label="Speed"
-              value={`${planet.speed.toFixed(4)}°/day`}
-              tooltip={planet.speed < 0 ? 'Retrograde motion' : 'Direct motion'}
-            />
 
             {/* Aspects */}
             {aspects.length > 0 && (

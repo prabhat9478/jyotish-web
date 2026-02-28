@@ -47,19 +47,26 @@ export const TransitWheel: React.FC<TransitWheelProps> = ({
     // Draw zodiac circle
     drawZodiacCircle(g, outerRadius);
 
+    // Convert Record<string, Planet> to array format for drawing helpers
+    const natalPlanetsArray = Object.entries(natalChart.planets).map(([name, p]) => ({
+      ...p,
+      name: name as import('@/types/astro').PlanetName,
+      longitude: p.degrees, // map canonical 'degrees' → 'longitude' for drawing
+    }));
+
     // Draw natal planets (inner ring)
-    drawPlanets(g, natalChart.planets, innerRadius - 30, 'natal');
+    drawPlanets(g, natalPlanetsArray, innerRadius - 30, 'natal');
 
     // Draw transiting planets (outer ring)
     // Mock transit data for now - will be replaced with real data
-    const transitPlanets = natalChart.planets.map(p => ({
+    const transitPlanets = natalPlanetsArray.map(p => ({
       ...p,
       longitude: (p.longitude + 45) % 360, // Mock: shift by 45 degrees
     }));
     drawPlanets(g, transitPlanets, outerRadius + 20, 'transit');
 
     // Draw aspect lines
-    drawAspects(g, natalChart.planets, transitPlanets, innerRadius - 30, outerRadius + 20);
+    drawAspects(g, natalPlanetsArray, transitPlanets, innerRadius - 30, outerRadius + 20);
 
     // Draw legend
     drawLegend(svg, width, height);

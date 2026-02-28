@@ -4,18 +4,17 @@
  */
 
 import { Worker } from "bullmq";
-import IORedis from "ioredis";
 import { createClient } from "@supabase/supabase-js";
 import { getCurrentTransits, getTransitsVsNatal } from "../astro-client";
-
-const connection = new IORedis(process.env.REDIS_URL || "redis://localhost:6379", {
-  maxRetriesPerRequest: null,
-});
+import { redisConnection } from "./queue";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SECRET_KEY!
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
+
+// Alert orb threshold in degrees — aspects tighter than this trigger alerts
+const ALERT_ORB_THRESHOLD = 2.0;
 
 const worker = new Worker(
   "transit-alerts",
@@ -32,8 +31,14 @@ const worker = new Worker(
         .eq("id", profileId)
         .single();
 
-      if (error || !profile || !profile.chart_data) {
-        throw new Error(`Profile not found or chart not calculated: ${profileId}`);
+      if (error || !profile) {
+        throw new Error(`Profile not found: ${profileId}`);
+      }
+
+      // Skip profiles without chart data
+      if (!profile.chart_data) {
+        console.log(`Skipping profile ${profileId}: no chart data`);
+        return { success: true, alertCount: 0, skipped: true };
       }
 
       // Get current transits
@@ -42,15 +47,17 @@ const worker = new Worker(
       // Calculate aspects between transits and natal chart
       const aspects = await getTransitsVsNatal(profile.chart_data, transits);
 
-      // Filter significant aspects (tight orbs < 2°)
+      // Filter significant aspects by orb threshold only
+      // Note: the astro-engine does not return an `applying` field reliably,
+      // so we filter purely on orb tightness.
       const significantAspects = aspects.filter(
-        (aspect) => Math.abs(aspect.orb) < 2.0 && aspect.applying
+        (aspect) => Math.abs(aspect.orb) <= ALERT_ORB_THRESHOLD
       );
 
       // Create alert for each significant aspect
       for (const aspect of significantAspects) {
         const alertTitle = `${aspect.transiting_planet} ${aspect.aspect_type} Natal ${aspect.natal_planet}`;
-        const alertContent = `Transiting ${aspect.transiting_planet} is forming a ${aspect.aspect_type} aspect with your natal ${aspect.natal_planet}. Orb: ${aspect.orb.toFixed(2)}°`;
+        const alertContent = `Transiting ${aspect.transiting_planet} is forming a ${aspect.aspect_type} aspect with your natal ${aspect.natal_planet}. Orb: ${aspect.orb.toFixed(2)}\u00B0`;
 
         await supabase.from("transit_alerts").insert({
           profile_id: profileId,
@@ -64,11 +71,13 @@ const worker = new Worker(
         });
       }
 
-      console.log(`Generated ${significantAspects.length} alerts for profile ${profileId}`);
+      console.log(
+        `Generated ${significantAspects.length} alerts for profile ${profileId}`
+      );
       return { success: true, alertCount: significantAspects.length };
     }
   },
-  { connection }
+  { connection: redisConnection }
 );
 
 worker.on("completed", (job) => {
@@ -76,7 +85,7 @@ worker.on("completed", (job) => {
 });
 
 worker.on("failed", (job, err) => {
-  console.error(`Alert job ${job?.id} failed:`, err);
+  console.error(`Alert job ${job?.id} failed:`, err.message);
 });
 
 console.log("Alert worker started");

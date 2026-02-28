@@ -30,6 +30,9 @@ export async function generateChatResponse(
   const { profileId, chartData, query, conversationHistory, model } = options;
 
   // Extract date mentions for context
+  // TODO: compute transit positions for extracted dates via astro-engine
+  // Currently this only extracts date strings from the query text — it does
+  // not call /chart/transits to get actual planetary positions for those dates.
   const dateMentions = extractDateMentions(query);
 
   // Retrieve relevant report chunks

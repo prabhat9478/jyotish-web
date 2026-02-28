@@ -124,7 +124,7 @@ export async function calculateChart(birthData: BirthData): Promise<ChartData> {
  * Get current planetary positions (transits)
  */
 export async function getCurrentTransits(): Promise<TransitData> {
-  const response = await fetch(`${ASTRO_ENGINE_URL}/transits`);
+  const response = await fetch(`${ASTRO_ENGINE_URL}/chart/transits`);
 
   if (!response.ok) {
     throw new Error(`Transit fetch failed: ${response.statusText}`);
@@ -140,7 +140,7 @@ export async function getTransitsVsNatal(
   natalChart: ChartData,
   currentTransits: TransitData
 ): Promise<AspectData[]> {
-  const response = await fetch(`${ASTRO_ENGINE_URL}/transits/natal`, {
+  const response = await fetch(`${ASTRO_ENGINE_URL}/chart/transits/natal`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ natal: natalChart, transits: currentTransits }),

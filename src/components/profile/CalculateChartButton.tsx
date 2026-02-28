@@ -9,6 +9,7 @@ interface Profile {
   name: string;
   birth_date: string;
   birth_time: string;
+  birth_place: string;
   latitude: number;
   longitude: number;
   timezone: string;
@@ -36,8 +37,9 @@ export default function CalculateChartButton({ profileId, profile, primary }: Pr
           profileId,
           birthData: {
             name: profile.name,
-            birth_date: profile.birth_date,
-            birth_time: profile.birth_time,
+            dateOfBirth: profile.birth_date,
+            timeOfBirth: profile.birth_time,
+            placeOfBirth: profile.birth_place,
             latitude: profile.latitude,
             longitude: profile.longitude,
             timezone: profile.timezone,

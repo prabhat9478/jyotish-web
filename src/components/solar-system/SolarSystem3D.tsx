@@ -14,7 +14,7 @@ interface SolarSystem3DProps {
   className?: string;
 }
 
-export const SolarSystem3D: React.FC<SolarSystem3DProps> = ({
+const SolarSystem3D: React.FC<SolarSystem3DProps> = ({
   chartData,
   showBirthPositions = true,
   onPlanetSelect,
@@ -55,13 +55,14 @@ export const SolarSystem3D: React.FC<SolarSystem3DProps> = ({
           <Sun />
 
           {/* Planets */}
-          {chartData.planets.map((planet) => (
+          {Object.entries(chartData.planets).map(([name, planet]) => (
             <Planet
-              key={planet.name}
+              key={name}
+              planetName={name as PlanetName}
               planet={planet}
               showBirthPositions={showBirthPositions}
-              isSelected={selectedPlanet === planet.name}
-              onClick={() => handlePlanetClick(planet.name)}
+              isSelected={selectedPlanet === name}
+              onClick={() => handlePlanetClick(name as PlanetName)}
             />
           ))}
 
@@ -101,6 +102,9 @@ export const SolarSystem3D: React.FC<SolarSystem3DProps> = ({
   );
 };
 
+export { SolarSystem3D };
+export default SolarSystem3D;
+
 const Sun: React.FC = () => {
   const sunRef = useRef<THREE.Mesh>(null);
 
@@ -129,6 +133,7 @@ const Sun: React.FC = () => {
 };
 
 interface PlanetProps {
+  planetName: PlanetName;
   planet: import("@/types/astro").Planet;
   showBirthPositions: boolean;
   isSelected: boolean;
@@ -136,6 +141,7 @@ interface PlanetProps {
 }
 
 const Planet: React.FC<PlanetProps> = ({
+  planetName,
   planet,
   showBirthPositions,
   isSelected,
@@ -169,9 +175,9 @@ const Planet: React.FC<PlanetProps> = ({
     Ketu: 10,
   };
 
-  const size = planetSizes[planet.name] || 0.2;
-  const orbitRadius = orbitRadii[planet.name] || 5;
-  const angle = (planet.longitude * Math.PI) / 180;
+  const size = planetSizes[planetName] || 0.2;
+  const orbitRadius = orbitRadii[planetName] || 5;
+  const angle = (planet.degrees * Math.PI) / 180;
 
   useFrame(({ clock }) => {
     if (orbitRef.current && showBirthPositions) {
@@ -198,7 +204,7 @@ const Planet: React.FC<PlanetProps> = ({
         <mesh rotation={[Math.PI / 2, 0, 0]}>
           <ringGeometry args={[orbitRadius - 0.02, orbitRadius + 0.02, 64]} />
           <meshBasicMaterial
-            color={PLANET_COLORS[planet.name]}
+            color={PLANET_COLORS[planetName]}
             transparent
             opacity={0.2}
             side={THREE.DoubleSide}
@@ -221,8 +227,8 @@ const Planet: React.FC<PlanetProps> = ({
       >
         <sphereGeometry args={[size, 32, 32]} />
         <meshStandardMaterial
-          color={PLANET_COLORS[planet.name]}
-          emissive={PLANET_COLORS[planet.name]}
+          color={PLANET_COLORS[planetName]}
+          emissive={PLANET_COLORS[planetName]}
           emissiveIntensity={isSelected ? 0.8 : 0.3}
         />
         <Html distanceFactor={10}>
@@ -230,10 +236,10 @@ const Planet: React.FC<PlanetProps> = ({
             className={`px-2 py-1 rounded text-xs font-bold whitespace-nowrap ${
               isSelected ? 'bg-[#7c3aed]' : 'bg-[#0a0a1a]'
             }`}
-            style={{ color: PLANET_COLORS[planet.name] }}
+            style={{ color: PLANET_COLORS[planetName] }}
           >
-            {planet.name}
-            {planet.isRetrograde && ' ℞'}
+            {planetName}
+            {planet.retrograde && ' ℞'}
           </div>
         </Html>
       </mesh>

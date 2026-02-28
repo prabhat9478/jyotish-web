@@ -36,9 +36,9 @@ export const ProfileCard: React.FC<ProfileCardProps> = ({
     other: 'Other',
   };
 
-  // Mock current dasha - will be replaced with real data
-  const currentDasha = profile.chartData
-    ? `${profile.chartData.dashas.currentMahadasha.planet}-${profile.chartData.dashas.currentAntardasha.planet}`
+  // Current dasha from chart data
+  const currentDasha = profile.chartData?.dashas?.current?.mahadasha && profile.chartData?.dashas?.current?.antardasha
+    ? `${profile.chartData.dashas.current.mahadasha}-${profile.chartData.dashas.current.antardasha}`
     : 'Not calculated';
 
   return (

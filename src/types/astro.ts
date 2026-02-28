@@ -33,7 +33,129 @@ export type Language = 'en' | 'hi';
 
 export type Relation = 'self' | 'spouse' | 'parent' | 'child' | 'sibling' | 'other';
 
-export interface Nakshatra {
+/**
+ * Canonical planet data as stored in the database chart_data JSON.
+ * Keyed by planet name (e.g. 'Sun', 'Moon', 'Mars') in ChartData.planets.
+ */
+export interface Planet {
+  sign: string;
+  sign_num: number;
+  degrees: number;
+  house: number;
+  nakshatra: string;
+  pada: number;
+  retrograde: boolean;
+  combust?: boolean;
+  lord: string;
+}
+
+/**
+ * Canonical house data as stored in the database chart_data JSON.
+ * Keyed by house number string (e.g. '1' through '12') in ChartData.houses.
+ */
+export interface House {
+  sign: string;
+  lord: string;
+  planets: string[];
+}
+
+export interface DashaBalance {
+  planet: string;
+  years: number;
+  months: number;
+  days: number;
+}
+
+export interface DashaPeriod {
+  planet: string;
+  start: string;
+  end: string;
+}
+
+export interface CurrentDasha {
+  mahadasha: string;
+  antardasha: string;
+  mahadasha_start: string;
+  mahadasha_end: string;
+  antardasha_start: string;
+  antardasha_end: string;
+}
+
+export interface Yoga {
+  name: string;
+  type: string;
+  strength: string;
+  description: string;
+  planets: string[];
+  effect: string;
+}
+
+/**
+ * Canonical ChartData shape — matches what astro-engine returns (after
+ * BFF transformation) and what report prompts / RAG chat expect.
+ *
+ * planets: object keyed by planet name  (e.g. planets.Sun, planets.Moon)
+ * houses:  object keyed by house number (e.g. houses["1"], houses["10"])
+ */
+export interface ChartData {
+  calculated_at: string;
+  ayanamsha: string;
+  ayanamsha_value: number;
+  julian_day: number;
+  lagna: {
+    sign: string;
+    sign_num: number;
+    degrees: number;
+    lord: string;
+  };
+  planets: Record<string, Planet>;
+  houses: Record<string, House>;
+  dashas: {
+    balance_at_birth: DashaBalance;
+    sequence: DashaPeriod[];
+    current: CurrentDasha;
+  };
+  yogas: Yoga[];
+  ashtakavarga?: Record<string, number[]>;
+  numerology?: {
+    birth_number: number;
+    name_number: number;
+    destiny_number: number;
+  };
+}
+
+export interface TransitData {
+  date: string;
+  planets: Record<string, Omit<Planet, 'house'>>;
+}
+
+export interface AspectData {
+  transiting_planet: string;
+  natal_planet: string;
+  aspect_type: string;
+  orb: number;
+  applying: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// Legacy types used by UI components (web/src/components/).
+// These describe the UI-facing shape after any BFF transformation.
+// Components should eventually migrate to the canonical types above.
+// ---------------------------------------------------------------------------
+
+/** @deprecated Use Planet (canonical) with object-keyed access instead */
+export interface LegacyPlanet {
+  name: PlanetName;
+  longitude: number;
+  sign: ZodiacSign;
+  house: HouseNumber;
+  nakshatra: LegacyNakshatra;
+  isRetrograde: boolean;
+  dignity: 'exalted' | 'debilitated' | 'own' | 'friend' | 'neutral' | 'enemy';
+  speed: number;
+}
+
+export interface LegacyNakshatra {
   name: string;
   number: number;
   pada: 1 | 2 | 3 | 4;
@@ -41,18 +163,8 @@ export interface Nakshatra {
   degrees: number;
 }
 
-export interface Planet {
-  name: PlanetName;
-  longitude: number;
-  sign: ZodiacSign;
-  house: HouseNumber;
-  nakshatra: Nakshatra;
-  isRetrograde: boolean;
-  dignity: 'exalted' | 'debilitated' | 'own' | 'friend' | 'neutral' | 'enemy';
-  speed: number;
-}
-
-export interface House {
+/** @deprecated Use House (canonical) with object-keyed access instead */
+export interface LegacyHouse {
   number: HouseNumber;
   sign: ZodiacSign;
   lord: PlanetName;
@@ -60,6 +172,7 @@ export interface House {
   cusp: number;
 }
 
+/** @deprecated Use DashaPeriod / CurrentDasha (canonical) instead */
 export interface Dasha {
   planet: PlanetName;
   start: Date;
@@ -67,21 +180,12 @@ export interface Dasha {
   type: 'mahadasha' | 'antardasha' | 'pratyantardasha';
 }
 
+/** @deprecated Use ChartData.dashas (canonical) instead */
 export interface DashaSequence {
   mahadashas: Dasha[];
   currentMahadasha: Dasha;
   currentAntardasha: Dasha;
   balance: number; // remaining years at birth
-}
-
-export interface Yoga {
-  name: string;
-  type: YogaType;
-  strength: YogaStrength;
-  description: string;
-  effect: string;
-  classicalSource?: string;
-  planets: PlanetName[];
 }
 
 export interface Aspect {
@@ -92,26 +196,12 @@ export interface Aspect {
   isNatal: boolean; // true if both planets are natal, false if transiting
 }
 
-export interface ChartData {
-  id: string;
-  profileId: string;
-  lagna: {
-    sign: ZodiacSign;
-    degrees: number;
-  };
-  planets: Planet[];
-  houses: House[];
-  dashas: DashaSequence;
-  yogas: Yoga[];
-  aspects: Aspect[];
-  ashtakavarga?: Partial<Record<PlanetName, number[]>> & { sarva?: number[] };
-  calculatedAt: Date;
-}
-
-export interface TransitData {
-  date: Date;
-  planets: Planet[];
-  aspects: Aspect[]; // aspects to natal planets
+export interface Nakshatra {
+  name: string;
+  number: number;
+  pada: 1 | 2 | 3 | 4;
+  lord: PlanetName;
+  degrees: number;
 }
 
 export interface BirthData {

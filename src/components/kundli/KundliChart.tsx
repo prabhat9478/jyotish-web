@@ -72,23 +72,54 @@ function renderNorthIndianChart(
   const half = size / 2;
 
   // North Indian - Diamond layout
-  // House positions in diamond formation
+  // The outer square has corners at (-half,-half), (half,-half), (half,half), (-half,half).
+  // The inner diamond has vertices at (0,-half), (half,0), (0,half), (-half,0).
+  // This creates 4 inner triangles (houses 1,4,7,10) and 8 outer triangles (houses 2,3,5,6,8,9,11,12).
+  //
+  // Standard layout:
+  // House 1:  top center (inner triangle between top diamond vertex and top edge of square)
+  // House 2:  top-right outer triangle
+  // House 3:  right-top outer triangle
+  // House 4:  right center (inner triangle between right diamond vertex and right edge)
+  // House 5:  right-bottom outer triangle
+  // House 6:  bottom-right outer triangle
+  // House 7:  bottom center (inner triangle between bottom diamond vertex and bottom edge)
+  // House 8:  bottom-left outer triangle
+  // House 9:  left-bottom outer triangle
+  // House 10: left center (inner triangle between left diamond vertex and left edge)
+  // House 11: left-top outer triangle
+  // House 12: top-left outer triangle
+
   const housePositions: Record<number, { x: number; y: number; rotate: number }> = {
-    1: { x: 0, y: -half * 0.75, rotate: 0 },
-    2: { x: half * 0.53, y: -half * 0.53, rotate: 0 },
-    3: { x: half * 0.75, y: 0, rotate: 0 },
-    4: { x: half * 0.53, y: half * 0.53, rotate: 0 },
-    5: { x: 0, y: half * 0.75, rotate: 0 },
-    6: { x: -half * 0.53, y: half * 0.53, rotate: 0 },
-    7: { x: -half * 0.75, y: 0, rotate: 0 },
-    8: { x: -half * 0.53, y: -half * 0.53, rotate: 0 },
-    9: { x: -half * 0.25, y: -half * 0.25, rotate: 0 },
-    10: { x: half * 0.25, y: -half * 0.25, rotate: 0 },
-    11: { x: half * 0.25, y: half * 0.25, rotate: 0 },
-    12: { x: -half * 0.25, y: half * 0.25, rotate: 0 },
+    1:  { x: 0,              y: -half * 0.35, rotate: 0 },   // top center triangle
+    2:  { x: half * 0.55,    y: -half * 0.78, rotate: 0 },   // top-right corner
+    3:  { x: half * 0.78,    y: -half * 0.55, rotate: 0 },   // right-top corner
+    4:  { x: half * 0.35,    y: 0,            rotate: 0 },   // right center triangle
+    5:  { x: half * 0.78,    y: half * 0.55,  rotate: 0 },   // right-bottom corner
+    6:  { x: half * 0.55,    y: half * 0.78,  rotate: 0 },   // bottom-right corner
+    7:  { x: 0,              y: half * 0.35,  rotate: 0 },   // bottom center triangle
+    8:  { x: -half * 0.55,   y: half * 0.78,  rotate: 0 },   // bottom-left corner
+    9:  { x: -half * 0.78,   y: half * 0.55,  rotate: 0 },   // left-bottom corner
+    10: { x: -half * 0.35,   y: 0,            rotate: 0 },   // left center triangle
+    11: { x: -half * 0.78,   y: -half * 0.55, rotate: 0 },   // left-top corner
+    12: { x: -half * 0.55,   y: -half * 0.78, rotate: 0 },   // top-left corner
   };
 
-  // Draw diamond outline
+  // Draw outer square
+  const squarePath = `
+    M ${-half},${-half}
+    L ${half},${-half}
+    L ${half},${half}
+    L ${-half},${half}
+    Z
+  `;
+  g.append('path')
+    .attr('d', squarePath)
+    .attr('fill', 'none')
+    .attr('stroke', '#1e2d4a')
+    .attr('stroke-width', 2);
+
+  // Draw inner diamond (inscribed in the square)
   const diamondPath = `
     M 0,${-half}
     L ${half},0
@@ -102,22 +133,7 @@ function renderNorthIndianChart(
     .attr('stroke', '#1e2d4a')
     .attr('stroke-width', 2);
 
-  // Draw inner diamond
-  const innerSize = half * 0.5;
-  const innerDiamond = `
-    M 0,${-innerSize}
-    L ${innerSize},0
-    L 0,${innerSize}
-    L ${-innerSize},0
-    Z
-  `;
-  g.append('path')
-    .attr('d', innerDiamond)
-    .attr('fill', 'none')
-    .attr('stroke', '#1e2d4a')
-    .attr('stroke-width', 2);
-
-  // Draw diagonal lines
+  // Draw diagonal lines connecting square corners to create all 12 house regions
   g.append('line')
     .attr('x1', -half).attr('y1', -half)
     .attr('x2', half).attr('y2', half)
@@ -129,36 +145,37 @@ function renderNorthIndianChart(
     .attr('stroke', '#1e2d4a')
     .attr('stroke-width', 1);
 
-  // Render houses
-  chartData.houses.forEach((house) => {
-    const pos = housePositions[house.number];
+  // Render houses (houses is Record<string, House>)
+  Object.entries(chartData.houses).forEach(([houseNumStr, house]) => {
+    const houseNum = parseInt(houseNumStr, 10);
+    const pos = housePositions[houseNum];
     if (!pos) return;
 
     const houseGroup = g
       .append('g')
       .attr('transform', `translate(${pos.x}, ${pos.y})`)
       .style('cursor', onHouseClick ? 'pointer' : 'default')
-      .on('click', () => onHouseClick?.(house.number as HouseNumber));
+      .on('click', () => onHouseClick?.(houseNum as HouseNumber));
 
-    // House number
+    // House number (small, top-left of region)
     houseGroup
       .append('text')
-      .attr('x', 0)
-      .attr('y', -40)
+      .attr('x', -15)
+      .attr('y', -18)
       .attr('text-anchor', 'middle')
       .attr('fill', '#64748b')
-      .attr('font-size', '14px')
+      .attr('font-size', '11px')
       .attr('font-weight', 'bold')
-      .text(house.number);
+      .text(houseNum);
 
-    // Sign
+    // Sign abbreviation
     houseGroup
       .append('text')
-      .attr('x', 0)
-      .attr('y', -20)
+      .attr('x', 15)
+      .attr('y', -18)
       .attr('text-anchor', 'middle')
       .attr('fill', '#c9a227')
-      .attr('font-size', '12px')
+      .attr('font-size', '11px')
       .text(house.sign.substring(0, 3));
 
     // Lagna marker
@@ -166,44 +183,50 @@ function renderNorthIndianChart(
       houseGroup
         .append('text')
         .attr('x', 0)
-        .attr('y', -5)
+        .attr('y', -4)
         .attr('text-anchor', 'middle')
         .attr('fill', '#7c3aed')
-        .attr('font-size', '16px')
+        .attr('font-size', '14px')
         .attr('font-weight', 'bold')
         .text('L');
     }
 
-    // Planets in this house
-    const planetsInHouse = chartData.planets.filter(p => p.house === house.number);
-    planetsInHouse.forEach((planet, index) => {
+    // Planets in this house (planets is Record<string, Planet>)
+    const planetsInHouse = Object.entries(chartData.planets)
+      .filter(([, p]) => p.house === houseNum)
+      .map(([name]) => name as PlanetName);
+
+    planetsInHouse.forEach((planetName, index) => {
+      const planet = chartData.planets[planetName];
+      const col = index % 2;
+      const row = Math.floor(index / 2);
       const planetGroup = houseGroup
         .append('g')
-        .attr('transform', `translate(0, ${15 + index * 18})`)
+        .attr('transform', `translate(${-10 + col * 20}, ${8 + row * 16})`)
         .style('cursor', onPlanetClick ? 'pointer' : 'default')
         .on('click', (event) => {
           event.stopPropagation();
-          onPlanetClick?.(planet.name);
+          onPlanetClick?.(planetName);
         });
 
       // Planet abbreviation
       planetGroup
         .append('text')
         .attr('text-anchor', 'middle')
-        .attr('fill', PLANET_COLORS[planet.name])
-        .attr('font-size', '14px')
+        .attr('fill', PLANET_COLORS[planetName])
+        .attr('font-size', '12px')
         .attr('font-weight', 'bold')
-        .text(planet.name.substring(0, 2));
+        .text(planetName.substring(0, 2));
 
       // Retrograde marker
-      if (planet.isRetrograde) {
+      if (planet.retrograde) {
         planetGroup
           .append('text')
-          .attr('x', 12)
-          .attr('y', -5)
+          .attr('x', 10)
+          .attr('y', -4)
           .attr('fill', '#ff3b30')
-          .attr('font-size', '10px')
-          .text('℞');
+          .attr('font-size', '9px')
+          .text('\u211E');
       }
 
       // Animate planet entrance
@@ -213,7 +236,6 @@ function renderNorthIndianChart(
         .duration(800)
         .delay(index * 100)
         .style('opacity', 1)
-        .attr('transform', `translate(0, ${15 + index * 18}) scale(1)`)
         .ease(d3.easeBounceOut);
     });
   });
@@ -258,13 +280,13 @@ function renderSouthIndianChart(
       const houseNum = houseLayout[row][col];
       if (houseNum === null) continue;
 
-      const house = chartData.houses.find(h => h.number === houseNum);
+      const house = chartData.houses[houseNum.toString()];
       if (!house) continue;
 
       const houseGroup = g
         .append('g')
         .style('cursor', onHouseClick ? 'pointer' : 'default')
-        .on('click', () => onHouseClick?.(house.number as HouseNumber));
+        .on('click', () => onHouseClick?.(houseNum as HouseNumber));
 
       // House number
       houseGroup
@@ -299,15 +321,19 @@ function renderSouthIndianChart(
           .text('L');
       }
 
-      // Planets in this house
-      const planetsInHouse = chartData.planets.filter(p => p.house === houseNum);
-      planetsInHouse.forEach((planet, index) => {
+      // Planets in this house (planets is Record<string, Planet>)
+      const planetsInHouse = Object.entries(chartData.planets)
+        .filter(([, p]) => p.house === houseNum)
+        .map(([name]) => name as PlanetName);
+
+      planetsInHouse.forEach((planetName, index) => {
+        const planet = chartData.planets[planetName];
         const planetGroup = houseGroup
           .append('g')
           .style('cursor', onPlanetClick ? 'pointer' : 'default')
           .on('click', (event) => {
             event.stopPropagation();
-            onPlanetClick?.(planet.name);
+            onPlanetClick?.(planetName);
           });
 
         const planetX = x + 10 + (index % 2) * 30;
@@ -317,12 +343,12 @@ function renderSouthIndianChart(
           .append('text')
           .attr('x', planetX)
           .attr('y', planetY)
-          .attr('fill', PLANET_COLORS[planet.name])
+          .attr('fill', PLANET_COLORS[planetName])
           .attr('font-size', '13px')
           .attr('font-weight', 'bold')
-          .text(planet.name.substring(0, 2));
+          .text(planetName.substring(0, 2));
 
-        if (planet.isRetrograde) {
+        if (planet.retrograde) {
           planetGroup
             .append('text')
             .attr('x', planetX + 12)

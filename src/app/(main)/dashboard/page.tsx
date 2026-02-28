@@ -1,6 +1,7 @@
 import { createServerClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { Plus } from "lucide-react";
+import DashboardProfileGrid from "@/components/dashboard/DashboardProfileGrid";
 
 export default async function DashboardPage() {
   const supabase = await createServerClient();
@@ -29,32 +30,7 @@ export default async function DashboardPage() {
       </div>
 
       {profiles && profiles.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {profiles.map((profile) => (
-            <Link
-              key={profile.id}
-              href={`/profile/${profile.id}`}
-              className="glass rounded-lg p-6 hover:border-primary/50 transition group"
-            >
-              <div className="flex items-start justify-between mb-4">
-                <div>
-                  <h3 className="text-xl font-semibold group-hover:text-primary transition">
-                    {profile.name}
-                  </h3>
-                  {profile.relation && (
-                    <span className="inline-block mt-1 px-2 py-0.5 rounded-full text-xs bg-secondary/20 text-secondary">
-                      {profile.relation}
-                    </span>
-                  )}
-                </div>
-              </div>
-              <div className="text-sm text-muted-foreground space-y-1">
-                <p>Born: {new Date(profile.birth_date).toLocaleDateString()}</p>
-                <p>Place: {profile.birth_place}</p>
-              </div>
-            </Link>
-          ))}
-        </div>
+        <DashboardProfileGrid profiles={profiles} />
       ) : (
         <div className="glass rounded-lg p-12 text-center">
           <p className="text-muted-foreground mb-4">

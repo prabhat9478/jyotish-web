@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import CalculateChartButton from "@/components/profile/CalculateChartButton";
+import ProfileChartTabs from "@/components/profile/ProfileChartTabs";
 
 export default async function ProfilePage({
   params,
@@ -33,7 +34,7 @@ export default async function ProfilePage({
         >
           <ArrowLeft className="w-5 h-5" />
         </Link>
-        <div>
+        <div className="flex-1">
           <h1 className="text-3xl font-bold mb-0.5">{profile.name}</h1>
           <p className="text-muted-foreground text-sm">
             {profile.relation && (
@@ -44,6 +45,23 @@ export default async function ProfilePage({
             Birth Chart &amp; Analysis
           </p>
         </div>
+        {/* Navigation links */}
+        {chart && (
+          <div className="flex gap-2">
+            <Link
+              href={`/profile/${id}/reports`}
+              className="px-4 py-2 rounded-md border border-border hover:bg-muted/50 transition text-sm font-medium"
+            >
+              Reports
+            </Link>
+            <Link
+              href={`/profile/${id}/chat`}
+              className="px-4 py-2 rounded-md border border-border hover:bg-muted/50 transition text-sm font-medium"
+            >
+              AI Chat
+            </Link>
+          </div>
+        )}
       </div>
 
       {/* Birth Details */}
@@ -89,53 +107,14 @@ export default async function ProfilePage({
               ))}
           </div>
 
-          {/* All Planets */}
-          <div className="glass rounded-lg p-6 mb-6">
-            <h2 className="text-lg font-semibold mb-4">Planetary Positions</h2>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-left text-muted-foreground border-b border-border">
-                    <th className="pb-2 font-medium">Planet</th>
-                    <th className="pb-2 font-medium">Sign</th>
-                    <th className="pb-2 font-medium">Nakshatra</th>
-                    <th className="pb-2 font-medium">Pada</th>
-                    <th className="pb-2 font-medium">Degree</th>
-                    <th className="pb-2 font-medium">House</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(chart.planets as Array<{
-                    name: string;
-                    sign: string;
-                    nakshatra?: string;
-                    pada?: number;
-                    degree?: number;
-                    house?: number;
-                    retrograde?: boolean;
-                  }> | undefined)?.map((p) => (
-                    <tr key={p.name} className="border-b border-border/50 hover:bg-muted/20">
-                      <td className="py-2.5 font-medium">
-                        {p.name}
-                        {p.retrograde && <span className="ml-1 text-xs text-yellow-500">(R)</span>}
-                      </td>
-                      <td className="py-2.5">{p.sign}</td>
-                      <td className="py-2.5">{p.nakshatra ?? "—"}</td>
-                      <td className="py-2.5">{p.pada ?? "—"}</td>
-                      <td className="py-2.5">{p.degree?.toFixed(2) ?? "—"}°</td>
-                      <td className="py-2.5">{p.house ?? "—"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          {/* Tabbed Visualization Section */}
+          <ProfileChartTabs chartData={chart} profileId={id} />
 
           {/* Action links */}
-          <div className="flex gap-3">
+          <div className="flex gap-3 mt-6">
             <CalculateChartButton profileId={profile.id} profile={profile} />
             <Link
-              href={`/api/v1/reports/generate`}
+              href={`/profile/${id}/reports`}
               className="px-4 py-2 rounded-md border border-border hover:bg-muted/50 transition text-sm"
             >
               Generate Full Report

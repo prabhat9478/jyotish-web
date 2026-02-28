@@ -4,17 +4,14 @@
  */
 
 import { Worker } from "bullmq";
-import IORedis from "ioredis";
 import { createClient } from "@supabase/supabase-js";
-import { generatePDF } from "../astro-client";
+import { redisConnection } from "./queue";
 
-const connection = new IORedis(process.env.REDIS_URL || "redis://localhost:6379", {
-  maxRetriesPerRequest: null,
-});
+const ASTRO_ENGINE_URL = process.env.ASTRO_ENGINE_URL || "http://localhost:8000";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SECRET_KEY!
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
 const worker = new Worker(
@@ -28,7 +25,7 @@ const worker = new Worker(
       // Fetch report content from database
       const { data: report, error } = await supabase
         .from("reports")
-        .select("*")
+        .select("*, profiles(name)")
         .eq("id", reportId)
         .single();
 
@@ -36,14 +33,37 @@ const worker = new Worker(
         throw new Error(`Report not found: ${reportId}`);
       }
 
-      // Generate PDF via astro-engine
-      const pdfBuffer = await generatePDF(reportId, report.content, report.report_type);
+      if (!report.content) {
+        throw new Error(`Report ${reportId} has no content yet`);
+      }
+
+      const profileName = (report.profiles as any)?.name || "Unknown";
+      const reportType = report.report_type || "general";
+
+      // Generate PDF via astro-engine — payload matches ReportRequest schema
+      const pdfResponse = await fetch(`${ASTRO_ENGINE_URL}/pdf/report`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: `${reportType.replace(/_/g, " ").toUpperCase()} \u2014 ${profileName}`,
+          content: report.content,
+          author: "JyotishAI",
+          subject: `Vedic Astrology Report \u2014 ${reportType}`,
+        }),
+      });
+
+      if (!pdfResponse.ok) {
+        const errText = await pdfResponse.text();
+        throw new Error(`PDF generation failed (${pdfResponse.status}): ${errText}`);
+      }
+
+      const pdfBuffer = await pdfResponse.arrayBuffer();
 
       // Upload to Supabase Storage
-      const fileName = `${reportId}.pdf`;
-      const { data: uploadData, error: uploadError } = await supabase.storage
+      const fileName = `reports/${reportId}.pdf`;
+      const { error: uploadError } = await supabase.storage
         .from("reports")
-        .upload(fileName, pdfBuffer, {
+        .upload(fileName, Buffer.from(pdfBuffer), {
           contentType: "application/pdf",
           upsert: true,
         });
@@ -53,22 +73,24 @@ const worker = new Worker(
       }
 
       // Get public URL
-      const { data: urlData } = supabase.storage.from("reports").getPublicUrl(fileName);
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from("reports").getPublicUrl(fileName);
 
       // Update report with PDF URL
       await supabase
         .from("reports")
         .update({
-          pdf_url: urlData.publicUrl,
+          pdf_url: publicUrl,
           pdf_generated_at: new Date().toISOString(),
         })
         .eq("id", reportId);
 
-      console.log(`PDF generated for report ${reportId}`);
-      return { success: true, pdfUrl: urlData.publicUrl };
+      console.log(`PDF generated for report ${reportId}: ${publicUrl}`);
+      return { success: true, pdfUrl: publicUrl };
     }
   },
-  { connection }
+  { connection: redisConnection }
 );
 
 worker.on("completed", (job) => {
@@ -76,7 +98,7 @@ worker.on("completed", (job) => {
 });
 
 worker.on("failed", (job, err) => {
-  console.error(`Job ${job?.id} failed:`, err);
+  console.error(`Job ${job?.id} failed:`, err.message);
 });
 
 console.log("Report worker started");

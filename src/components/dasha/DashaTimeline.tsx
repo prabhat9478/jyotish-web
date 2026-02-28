@@ -3,12 +3,18 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
 import { motion } from 'framer-motion';
-import { DashaSequence, Dasha, PlanetName, PLANET_COLORS } from '@/types/astro';
+import { DashaPeriod, CurrentDasha, DashaBalance, PlanetName, PLANET_COLORS } from '@/types/astro';
+
+interface DashaData {
+  balance_at_birth: DashaBalance;
+  sequence: DashaPeriod[];
+  current: CurrentDasha;
+}
 
 interface DashaTimelineProps {
-  dashas: DashaSequence;
+  dashas: DashaData;
   currentDate?: Date;
-  onPeriodClick?: (period: Dasha) => void;
+  onPeriodClick?: (period: DashaPeriod) => void;
   className?: string;
 }
 
@@ -38,7 +44,7 @@ export const DashaTimeline: React.FC<DashaTimelineProps> = ({
   }, []);
 
   useEffect(() => {
-    if (!svgRef.current || !dashas.mahadashas.length) return;
+    if (!svgRef.current || !dashas.sequence.length) return;
 
     const svg = d3.select(svgRef.current);
     svg.selectAll('*').remove();
@@ -53,7 +59,7 @@ export const DashaTimeline: React.FC<DashaTimelineProps> = ({
       .attr('transform', `translate(${margin.left}, ${margin.top})`);
 
     // Time scale
-    const allDashas = dashas.mahadashas;
+    const allDashas = dashas.sequence;
     const minDate = d3.min(allDashas, d => new Date(d.start)) || new Date();
     const maxDate = d3.max(allDashas, d => new Date(d.end)) || new Date();
 
@@ -93,9 +99,9 @@ export const DashaTimeline: React.FC<DashaTimelineProps> = ({
         .attr('y', 20)
         .attr('width', blockWidth)
         .attr('height', mahadashaHeight)
-        .attr('fill', PLANET_COLORS[mahadasha.planet])
+        .attr('fill', PLANET_COLORS[mahadasha.planet as PlanetName] ?? '#64748b')
         .attr('opacity', 0.3)
-        .attr('stroke', PLANET_COLORS[mahadasha.planet])
+        .attr('stroke', PLANET_COLORS[mahadasha.planet as PlanetName] ?? '#64748b')
         .attr('stroke-width', 2)
         .attr('rx', 4)
         .on('mouseenter', function () {
@@ -195,8 +201,8 @@ export const DashaTimeline: React.FC<DashaTimelineProps> = ({
     }
 
     // Current dasha info
-    const currentInfo = `Current: ${dashas.currentMahadasha.planet}-${dashas.currentAntardasha.planet} (until ${new Date(
-      dashas.currentAntardasha.end
+    const currentInfo = `Current: ${dashas.current.mahadasha}-${dashas.current.antardasha} (until ${new Date(
+      dashas.current.antardasha_end
     ).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })})`;
 
     g.append('text')

@@ -4,39 +4,87 @@ import { generateStreamingReport } from "@/lib/report-generator";
 import { chunkText, extractSectionTitle } from "@/lib/rag/chunker";
 import { embedBatch } from "@/lib/rag/embedder";
 import { enqueuePDFGeneration } from "@/lib/workers/queue";
+import { z } from "zod";
+
+const GenerateReportSchema = z.object({
+  profileId: z.string().uuid(),
+  reportType: z.enum([
+    "in_depth",
+    "career",
+    "wealth",
+    "yearly",
+    "transit_jupiter",
+    "transit_saturn",
+    "transit_rahu_ketu",
+    "numerology",
+    "gem_recommendation",
+  ]),
+  language: z.enum(["en", "hi"]).default("en"),
+  model: z.string().optional(),
+});
 
 export async function POST(request: NextRequest) {
   const supabase = await createServerClient();
-  const body = await request.json();
 
-  const { profileId, reportType, language, model } = body;
-
-  if (!profileId || !reportType) {
-    return new Response(JSON.stringify({ error: "Missing required fields" }), {
-      status: 400,
+  // Explicit auth check
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
     });
   }
 
-  // Fetch profile with chart data
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return new Response(JSON.stringify({ error: "Invalid JSON body" }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  // Zod validation
+  const parseResult = GenerateReportSchema.safeParse(body);
+  if (!parseResult.success) {
+    return new Response(
+      JSON.stringify({ error: "Validation failed", issues: parseResult.error.issues }),
+      { status: 400, headers: { "Content-Type": "application/json" } }
+    );
+  }
+
+  const { profileId, reportType, language, model } = parseResult.data;
+
+  // Fetch profile with chart data — scoped to authenticated user
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
     .select("*")
     .eq("id", profileId)
+    .eq("user_id", user.id)
     .single();
 
-  if (profileError || !profile?.chart_data) {
-    return new Response(JSON.stringify({ error: "Profile or chart data not found" }), {
+  if (profileError || !profile) {
+    return new Response(JSON.stringify({ error: "Profile not found" }), {
       status: 404,
+      headers: { "Content-Type": "application/json" },
     });
   }
 
-  // Create report record
+  if (!profile.chart_data) {
+    return new Response(JSON.stringify({ error: "Chart data not found. Calculate chart first." }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  // Create report record with 'generating' status
   const { data: report, error: reportError } = await supabase
     .from("reports")
     .insert({
       profile_id: profileId,
       report_type: reportType,
-      language: language || "en",
+      language,
       model_used: model || "anthropic/claude-sonnet-4-5",
       generation_status: "generating",
     })
@@ -46,17 +94,33 @@ export async function POST(request: NextRequest) {
   if (reportError) {
     return new Response(JSON.stringify({ error: reportError.message }), {
       status: 500,
+      headers: { "Content-Type": "application/json" },
     });
   }
 
   // Generate streaming report
-  const stream = await generateStreamingReport({
-    profileId,
-    reportType,
-    language: language || "en",
-    model,
-    chartData: profile.chart_data as any,
-  });
+  let stream: ReadableStream<Uint8Array>;
+  try {
+    stream = await generateStreamingReport({
+      profileId,
+      reportType,
+      language,
+      model,
+      chartData: profile.chart_data as any,
+    });
+  } catch (error: unknown) {
+    // Mark report as failed if stream cannot be created
+    await supabase
+      .from("reports")
+      .update({ generation_status: "failed" })
+      .eq("id", report.id);
+
+    const message = error instanceof Error ? error.message : "Failed to start report generation";
+    return new Response(JSON.stringify({ error: message }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
 
   let fullContent = "";
 
@@ -88,7 +152,7 @@ export async function POST(request: NextRequest) {
                   controller.enqueue(encoder.encode(`data: ${JSON.stringify({ content })}\n\n`));
                 }
               } catch (e) {
-                // Ignore parse errors
+                // Ignore parse errors for individual chunks
               }
             }
           }
@@ -103,7 +167,24 @@ export async function POST(request: NextRequest) {
         controller.enqueue(encoder.encode("data: [DONE]\n\n"));
         controller.close();
       } catch (error) {
-        controller.error(error);
+        // Send error event to client via SSE
+        try {
+          controller.enqueue(
+            encoder.encode(
+              `data: ${JSON.stringify({ type: "error", message: "Report generation failed" })}\n\n`
+            )
+          );
+        } catch {
+          // Controller may already be errored
+        }
+
+        // Mark report as failed in database
+        await supabase
+          .from("reports")
+          .update({ generation_status: "failed" })
+          .eq("id", report.id);
+
+        controller.close();
       }
     },
   });
@@ -124,7 +205,7 @@ async function saveReportContent(
   content: string,
   reportType: string
 ) {
-  // Update report with content
+  // Update report with content and mark as complete
   await supabase
     .from("reports")
     .update({

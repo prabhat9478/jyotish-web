@@ -1,0 +1,12 @@
+FROM node:20-alpine
+WORKDIR /app
+
+RUN apk add --no-cache libc6-compat
+
+COPY package.json package-lock.json* ./
+RUN npm ci
+
+COPY . .
+
+# Workers run as TypeScript directly using tsx (no build needed)
+CMD ["npx", "tsx", "src/lib/workers/index.ts"]
